@@ -1,4 +1,4 @@
-  #Import required packages 
+#Import required packages 
 library(raster)
 library(ncdf4)
 library(doParallel)
@@ -20,7 +20,7 @@ library(bcmapsdata)
 ##
 rast_to_table<-function(strt_yr, end_yr, dir_string, b_num)
 {
-      
+  
   #Get first year of snow melt date (Band 2 in image file) as a raster 
   s <- raster(paste(dir_string,strt_yr,'.tif',sep = ""), band=b_num)
   
@@ -316,10 +316,12 @@ dev.off()
 jpeg("Manuscript/tatolatex/Figures/Fall/cluster2_mean.jpeg", quality =100)
 plot(clu_2_r, main="Cluster 2" ,xlab="Easting", ylab = "Northing",col = cols)
 plot(ecoprov, add=TRUE)
+plot(bc_boun, add=TRUE)
 dev.off()
 jpeg("Manuscript/tatolatex/Figures/Fall/cluster3_mean.jpeg", quality =100)
 plot(clu_3_r, main="Cluster 3", xlab="Easting", ylab = "Northning",col = cols)
 plot(ecoprov, add=TRUE)
+plot(bc_boun, add=TRUE)
 dev.off()
 
 
@@ -416,6 +418,7 @@ pr_var <- std_dev^2
 prop_varex <- (pr_var/sum(pr_var))*100
 png("Manuscript/tatolatex/Figures/Fall/mslp_scree.jpeg")
 plot(prop_varex, type = "b", xlab = "Principle Component",ylab = "Proportion of Variance Explained (%)")
+abline(h=1)
 dev.off()
 
 #Get the PCA scores as data frame 
@@ -453,7 +456,7 @@ best_mod<-NULL
 best_idx<-NULL
 
 
-#Permuate LDA models with 6 NCEP-DOE Reanlysis 2 MSLP PC score inputs, keep track of best model based on LOOCV classification accuracy. *assumes proportional priors 
+#Permuate LDA models with 6 NCEP-DOE Reanlysis 2 MSLP PC score inputs, keep track of best model based on LOOCV classification accuracy. **Must specify priors**
 for (e in c(1:retain))
 {print(e)
   for (g in c(e:retain))
@@ -518,6 +521,7 @@ x=lm(cbind(PC1,PC4,PC6,PC10,PC13,PC14)~y_clust, reg_tab)
 lda_can<-candisc(x, term="y_clust")
 coef_std<-as.data.frame(lda_can$coeffs.std)
 lda_can$coeffs.raw
+lda_can$coeffs.std
 
 #Save loadingplot as JPEG
 png("Manuscript/tatolatex/Figures/Fall/loadingplot.png")
@@ -603,7 +607,3 @@ jpeg("Manuscript/tatolatex/Figures/Fall/mslp_pc14.jpeg", quality = 100)
 plot(loading_lst[[6]], main = "MSLP PC14",xlab = 'Longitude',ylab='Latitude', box=FALSE,col = cols,xlim=c(-180,180), ylim=c(-90,90), asp=2)
 plot(coastlines, add=TRUE)
 dev.off()
-
-
-
-
