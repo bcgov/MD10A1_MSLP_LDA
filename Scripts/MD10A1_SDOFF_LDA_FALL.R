@@ -1,13 +1,9 @@
-#Import required packages 
+  #Import required packages 
 library(raster)
-#library(ggplot2)
 library(ncdf4)
 library(doParallel)
 library(parallel)
 library(MASS)
-#library(caret)
-#library(sf)
-#library(tidyverse)
 library(RColorBrewer)
 library(candisc)
 library(bcmaps)
@@ -24,7 +20,7 @@ library(bcmapsdata)
 ##
 rast_to_table<-function(strt_yr, end_yr, dir_string, b_num)
 {
-  
+      
   #Get first year of snow melt date (Band 2 in image file) as a raster 
   s <- raster(paste(dir_string,strt_yr,'.tif',sep = ""), band=b_num)
   
@@ -92,6 +88,7 @@ rast_to_table<-function(strt_yr, end_yr, dir_string, b_num)
 
 
 #Function returns a mean image of snowduration for years specified by yr_vect, or std dev if mode!=1
+#SDoff band is 2, set NA to -9
 #!!Assumes specific formatting of M*D10A1 tiff names!! 
 get_r_stack<-function(yr_vect,snow_dir_path,mode)
 {
@@ -143,11 +140,20 @@ get_r_stack<-function(yr_vect,snow_dir_path,mode)
 #Function for wrting S-Mode PCA loadings to GeoTiff for import to GIS platforms...also returns raster object 
 grid_spat_load<-function(lat_lon,rast, pca, pc_num)
 {
+  #Get loading scores from PCA object at pc_num
   load<-c(pca$rotation[,pc_num])
+  
+  #Add corresponding spatial coords
   p<-data.frame(lat_lon, name=load)
   coordinates(p)<-~x+y
+  
+  #Convert to a raster object
   r<-rasterize(p,rast,'name',fun=mean)
+  
+  #Write out as tiff
   writeRaster(r, filename=paste("Manuscript/tatolatex/Figures/Fall/","PC",pc_num,"_loading.tif", sep=""), format="GTiff", overwrite=TRUE)
+  r
+  #return raster object
   return(r)
 }
 
@@ -468,7 +474,7 @@ for (e in c(1:retain))
               f<-paste("reg_tab$y_clust ~",f)
               
               
-              test <- lda(as.formula(f), data = reg_tab, CV=TRUE)
+              test <- lda(as.formula(f), data = reg_tab,prior = c(1,1,1)/3, CV=TRUE)
               
               
               mu<-mean(reg_tab$y_clust== test$class)
@@ -493,13 +499,13 @@ best_mod
 best_mod_scr
 
 #Fit and print the LDA model results out of cross-validation mode
-lda_model<-lda(as.formula(best_mod),data = reg_tab)
+lda_model<-lda(as.formula(best_mod),data = reg_tab,prior = c(1,1,1)/3)
 lda_model
 
 
 #Print Confusion Matrix
 ob<-reg_tab$y_clust
-yhat<-lda(as.formula(best_mod),data = reg_tab, CV=TRUE)$class
+yhat<-lda(as.formula(best_mod),data = reg_tab,prior = c(1,1,1)/3,CV=TRUE)$class
 table(ob,yhat)
 
 #Save score plot as JPEG image 
