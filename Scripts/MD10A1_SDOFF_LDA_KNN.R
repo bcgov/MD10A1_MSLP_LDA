@@ -14,7 +14,7 @@ library(tidyverse)
 library(readr)
 library(corrplot)
 library(ggplot2)
-library(ggridges)
+library(gridExtra)
 
 #########################################################################################################
 ########################
@@ -44,8 +44,7 @@ rast_to_table<-function(strt_yr, end_yr, dir_string, b_num)
   crs(r) <- s_crs
   
   
-  
-  #For each year 2000-2018, add the year to image stack 's'
+  #For each year from start year+1 to end year, add the year to image stack 's'
   for (year in (strt_yr+1):end_yr){
     
     
@@ -59,7 +58,7 @@ rast_to_table<-function(strt_yr, end_yr, dir_string, b_num)
     s <- stack(s,rast)
   }
   
-  
+  #Assighn -9 as NA value (Known From Meta Data)
   NAvalue(s) <- -9
   
   #Convert the raster data to a data frame, retain spatial coordinates 
@@ -68,36 +67,31 @@ rast_to_table<-function(strt_yr, end_yr, dir_string, b_num)
   #Drop missing vectors
   rast_data <- rast_data[complete.cases(rast_data),]
   
-  
   #Transpose the snow duration data frame, (i.e., columns = pixels, rows =  year) 
   rast_data <- t(rast_data)
-  
   
   #Get logical of column indexes that have inter-annual varince, (i.e., not missing)
   has_var<-c(apply(rast_data[c(3:nrow(rast_data)),], 2, var) > 0)
   
-  
   #Filter out cols(pixels) with varaince == 0
   rast_data<-rast_data[,has_var]
   
-  
-  #Get a data frame of the remaining Lat Lon indicies 
+  #Get a data frame of the remaining Lat (C1) Lon (C2) indicies 
   lat_lon = as.data.frame(t(rast_data[c(1:2),]))
   
-  #Get data frame without spatial coordinates columns 
+  #Get data frame without spatial coordinates columns (C>=3)
   rast_data<-rast_data[c(3:nrow(rast_data)),]
   
   #Return raster data, lat lon coords, and raster properties
   rtrn_lst<-list(rast_data,lat_lon,r)
   return(rtrn_lst)
-  
 }
 
 
-#Function returns a mean image of snowduration for years specified by yr_vect, or std dev if mode!=1
-#SDoff band is 2, set NA to -9
-#!!Assumes specific formatting of M*D10A1 tiff names!! 
-get_r_stack<-function(yr_vect,snow_dir_path,mode)
+#Function returns a mean image of SDoff data for years specified by vector 'yr_vect'.
+#SDoff band is 2, set -9 to NA
+#!!Assumes specific formatting of M*D10A1 tiff names, i.e., see global var snow_dir_path"!!
+get_r_stack<-function(yr_vect,snow_dir_path)
 {
   #Counter
   i<-0
@@ -130,21 +124,15 @@ get_r_stack<-function(yr_vect,snow_dir_path,mode)
     i<-i+1
   }
   
-  #Calc mean or sd of stack
-  if(mode==1)
-  {
-    s_mean<-calc(s,mean,na.rm=TRUE)
-  }
-  else
-  {
-    s_mean<-calc(s,sd)
-  }
+  
+  s_mean<-calc(s,mean)
   
   return(s_mean)
 }
 
 
-#Function for wrting S-Mode PCA loadings to GeoTiff for import to GIS platforms...also returns raster object 
+#Function for wrting S-Mode PCA loadings to GeoTiff for import to GIS platforms...also returns raster object.
+#Provide Lat Lon coordinates, a raster profile, prcomp (PCA) object, and the PC number (Eigenvalue index). 
 grid_spat_load<-function(lat_lon,rast, pca, pc_num)
 {
   #Get loading scores from PCA object at pc_num
@@ -159,13 +147,16 @@ grid_spat_load<-function(lat_lon,rast, pca, pc_num)
   
   #Write out as tiff
   writeRaster(r, filename=paste("Manuscript/tatolatex/Figures/KNN/","PC",pc_num,"_loading.tif", sep=""), format="GTiff", overwrite=TRUE)
-  r
+  
   #return raster object
   return(r)
 }
 
 
-#Function for getting mean annual MSLP for specified period, convert to S-Mode matrix (rows = years, cols = pixels)
+#Function for getting mean annual MSLP for specified time period, converts spatial data to S-Mode PCA compatible matrix (rows = years, cols = pixels).
+#Specify at start and end year to aggregate.
+#Specify as start and end date to aggregate, e.g., '-09-01' and '-11-01' (Sep-Nov)
+#Provide MSLP data as a nc object
 aggr_slp<-function(slp_first_yr, slp_last_yr,slp_start_date,slp_end_date,slp)
 {
   
@@ -185,7 +176,7 @@ aggr_slp<-function(slp_first_yr, slp_last_yr,slp_start_date,slp_end_date,slp)
     #Get SLP data corresponding to sub annual time period 
     year<-slp[,,sub_perd]
     
-    #Get number of month within the sub-annual time period 
+    #Get number of months within the sub-annual time period 
     months<-dim(year)[3]
     
     #Get SLP data as a vector 
@@ -234,19 +225,20 @@ month_slp_pth<-"RawData/mslp.mon.mean.nc"
 #Declair start and end year over which to compute principle components for MSLP data
 slp_first_year=1979
 slp_last_year=2018
+slp_strt_date='-09-01'
+slp_end_date='-11-01'
 
-#Get Eco_Prov as geometry 
+#Get Eco_Prov as geometry, exclude 'NEP'
 ecoprov <- ecoprovinces() %>% 
   filter(ECOPROVINCE_CODE!='NEP')
 
 ecoprov<-ecoprov$geometry
 
+#Get boundry of British Columbia as SF object
 bc_boun<-bc_bound()$geometry
 
-#Establish a color ramp
-cols <- brewer.pal(11, "BrBG")
-
-
+#Establish a color ramp, for sure the best one. 
+cols <- brewer.pal(11, "Spectral")
 
 
 #########################################################################################################
@@ -258,7 +250,7 @@ cols <- brewer.pal(11, "BrBG")
 #Get the SDoff data into S-Mode matrix form, SDoff is band number 2
 rast_data<-rast_to_table(mod_start_year,mod_end_year,snow_dir_path,2)
 
-#Run PCA decompostion, rast_data is a list [pca_table, lat_lon fields, empty raster object]
+#Run PCA decompostion, rast_data is a list as -> [data table, lat_lon fields, empty raster object]
 dur_pca <- prcomp(rast_data[[1]], center = TRUE, scale. = TRUE)
 
 #Summarise the PCA results
@@ -290,7 +282,7 @@ plot(twss, ylab = 'Total Within Sum of Squares', xlab='k-clusters', type = 'b')
 abline(v=3)
 dev.off()
 
-#Perform k-means cluster analysis on the snow duration PCA results, *Must specify number of clusters to use in global vars*
+#Perform k-means cluster analysis on the snow duration PCA results, *Must specify number of clusters to use in global vars*, drop last eignevalue (0%)
 set.seed(20)
 clusters <- kmeans(x=mod_scores[,c(1:18)], centers = K, nstart = 10000)
 
@@ -310,75 +302,81 @@ clu_1<-years[clusters$cluster==1]
 clu_2<-years[clusters$cluster==2]
 clu_3<-years[clusters$cluster==3]
 
-#Get mean image for each cluster
-ts_mean<-get_r_stack(years,snow_dir_path,1)
+#Plot diffrence from time series mean for each SDoff Cluster 
+ts_mean<-get_r_stack(years,snow_dir_path)
 ts_mean<-projectRaster(ts_mean,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-clu_1_r<-get_r_stack(clu_1,snow_dir_path,1)
+clu_1_r<-get_r_stack(clu_1,snow_dir_path)
 clu_1_r<-projectRaster(clu_1_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-clu_2_r<-get_r_stack(clu_2,snow_dir_path,1)
+clu_2_r<-get_r_stack(clu_2,snow_dir_path)
 clu_2_r<-projectRaster(clu_2_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-clu_3_r<-get_r_stack(clu_3,snow_dir_path,1)
+clu_3_r<-get_r_stack(clu_3,snow_dir_path)
 clu_3_r<-projectRaster(clu_3_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-
-
-
-
-
 
 clu_1_dif<-clu_1_r-ts_mean
 clu_2_dif<-clu_2_r-ts_mean
 clu_3_dif<-clu_3_r-ts_mean
 
+clu_1_dif<-reclassify(clu_1_dif, rcl=c(-Inf,-40,-50,
+                                       -40,-30,-40,
+                                       -30,-10,-30,
+                                       -10,0,-10,
+                                       0,10,10,
+                                       10,30,30,
+                                       30,40,40,
+                                       40,Inf,50))
+
+clu_2_dif<-reclassify(clu_2_dif, rcl=c(-Inf,-40,-50,
+                                       -40,-30,-40,
+                                       -30,-10,-30,
+                                       -10,0,-10,
+                                       0,10,10,
+                                       10,30,30,
+                                       30,40,40,
+                                       40,Inf,50))
+
+clu_3_dif<-reclassify(clu_3_dif, rcl=c(-Inf,-40,-50,
+                                       -40,-30,-40,
+                                       -30,-10,-30,
+                                       -10,0,-10,
+                                       0,10,10,
+                                       10,30,30,
+                                       30,40,40,
+                                       40,Inf,50))
 
 
-hist(clu_1_dif)
 
-clu_1_dif<-reclassify(clu_1_dif, rcl=c(-Inf,-30,-30,
-                                       -30,-10,-20,
-                                       -10,0,-5,
-                                       0,10,5,
-                                       10,30,20,
-                                       30,Inf,30))
+RStoolbox::ggR(clu_1_dif, geom_raster = T, forceCat = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_manual(values = brewer.pal(8, "Spectral"), na.value="white") +
+  labs(x="",y="",fill="Clust. 1 - T.S. Mean (Days)")+
+  theme_void()+
+  theme(legend.position  = c(.85,.7))
 
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster1_mean.jpeg", device = 'jpeg')
 
-clu_2_dif<-reclassify(clu_2_dif, rcl=c(-Inf,-30,-30,
-                                       -30,-10,-20,
-                                       -10,0,-5,
-                                       0,10,5,
-                                       10,30,20,
-                                       30,Inf,30))
+RStoolbox::ggR(clu_2_dif, geom_raster = T, forceCat = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_manual(values = brewer.pal(8, "Spectral")) +
+  labs(x="",y="",fill="Clust. 2 - T.S. Mean (Days)")+
+  theme_void()+
+  theme(legend.position  = c(.85,.7))
 
-clu_3_dif<-reclassify(clu_3_dif, rcl=c(-Inf,-30,-30,
-                                       -30,-10,-20,
-                                       -10,0,-5,
-                                       0,10,5,
-                                       10,30,20,
-                                       30,Inf,30))
-
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster2_mean.jpeg", device = 'jpeg')
 
 RStoolbox::ggR(clu_3_dif, geom_raster = T, forceCat = T) + 
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
-  coord_sf(xlim = c(1917109/8,1917109)) +
-  scale_fill_manual(values = c("black","darkred","red","green","blue","darkblue"))
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_manual(values = brewer.pal(8, "Spectral")) +
+  labs(x="",y="",fill="Clust. 3 - T.S. Mean (Days)")+
+  theme_void()+
+  theme(legend.position  = c(.85,.7))
 
-
-#Plot image for each cluster type
-jpeg("Manuscript/tatolatex/Figures/KNN/cluster1_mean.jpeg", quality =100)
-plot(clu_1_dif, breaks = c(-90,-50,-30,-20,-10,-8,-5,0,5,8,10,20,30,50,90),col = hcl.colors(14,"Tofino"), main = "Cluster 1", xlab = "Easting", ylab = "Northing")
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE)
-
-jpeg("Manuscript/tatolatex/Figures/KNN/cluster2_mean.jpeg", quality =100)
-plot(clu_2_dif, breaks = c(-90,-50,-30,-20,-10,-8,-5,0,5,8,10,20,30,50,90),col = hcl.colors(14,"Tofino"), main = "Cluster 2", xlab = "Easting", ylab = "Northing")
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE)
-dev.off()
-
-jpeg("Manuscript/tatolatex/Figures/KNN/cluster3_mean.jpeg", quality =100)
-plot(clu_3_dif, breaks = c(-90,-50,-30,-20,-10,-8,-5,0,5,8,10,20,30,50,90),col = hcl.colors(14,"Tofino"), main = "Cluster 3", xlab = "Easting", ylab = "Northing")
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE) 
-dev.off()
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster3_mean.jpeg", device = 'jpeg')
 
 
 #Start parrallel cluster for generating loading images (Optional)
@@ -402,27 +400,74 @@ pc4_ld<-projectRaster(pc4_ld,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +l
 #Shutdown cluster object
 stopCluster(cl)
 
-#Save loading rasters as JPEGS in manuscript folder
-jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc1.jpeg", quality = 100)
-plot(pc1_ld, main="PC1", xlab="Easting", ylab = "Northing",col=cols)
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE)
-dev.off()
-jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc2.jpeg",quality = 100)
-plot(pc2_ld, main="PC2", xlab="Easting", ylab = "Northing",col=cols)
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE)
-dev.off()
-jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc3.jpeg",quality = 100)
-plot(pc3_ld, main="PC3", xlab="Easting", ylab = "Northing",col=cols)
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE)
-dev.off()
-jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc4.jpeg",quality = 100)
-plot(pc4_ld, main="PC4", xlab="Easting", ylab = "Northing",col=cols)
-plot(ecoprov, add=TRUE)
-plot(bc_boun, add=TRUE)
-dev.off()
+RStoolbox::ggR(pc1_ld, geom_raster = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_gradientn(colours=cols, na.value = "white") +
+  labs(x="",y="",fill="Loading Coef.")+
+  theme_void() +
+  theme(legend.position  = c(.85,.7))
+
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc1.jpeg", device = 'jpeg')
+
+RStoolbox::ggR(pc2_ld, geom_raster = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_gradientn(colours=cols, na.value = "white") +
+  labs(x="",y="",fill="Loading Coef.")+
+  theme_void() +
+  theme(legend.position  = c(.85,.7))
+
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc2.jpeg", device = 'jpeg')
+
+RStoolbox::ggR(pc3_ld, geom_raster = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_gradientn(colours=cols, na.value = "white") +
+  labs(x="",y="",fill="Loading Coef.")+
+  theme_void() +
+  theme(legend.position  = c(.85,.7))
+
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc3.jpeg", device = 'jpeg')
+
+RStoolbox::ggR(pc4_ld, geom_raster = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_gradientn(colours=cols, na.value = "white") +
+  labs(x="",y="",fill="Loading Coef.")+
+  theme_void() +
+  theme(legend.position  = c(.85,.7))
+
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc4.jpeg", device = 'jpeg')
+
+
+
+
+# #Save loading rasters as JPEGS in manuscript folder
+# jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc1.jpeg", quality = 100)
+# plot(pc1_ld, main="PC1", xlab="Easting", ylab = "Northing",col=cols)
+# plot(ecoprov, add=TRUE)
+# plot(bc_boun, add=TRUE)
+# dev.off()
+# jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc2.jpeg",quality = 100)
+# plot(pc2_ld, main="PC2", xlab="Easting", ylab = "Northing",col=cols)
+# plot(ecoprov, add=TRUE)
+# plot(bc_boun, add=TRUE)
+# dev.off()
+# jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc3.jpeg",quality = 100)
+# plot(pc3_ld, main="PC3", xlab="Easting", ylab = "Northing",col=cols)
+# plot(ecoprov, add=TRUE)
+# plot(bc_boun, add=TRUE)
+# dev.off()
+# jpeg("Manuscript/tatolatex/Figures/KNN/sdoff_pc4.jpeg",quality = 100)
+# plot(pc4_ld, main="PC4", xlab="Easting", ylab = "Northing",col=cols)
+# plot(ecoprov, add=TRUE)
+# plot(bc_boun, add=TRUE)
+# dev.off()
 
 
 
@@ -460,7 +505,7 @@ slp <- ncvar_get(ncin,"mslp")
 time<-as.Date(time/24, origin='1800-01-01')
 
 #Get mean MSLP for fall (Sep - Nov) period 
-slp_mean<-aggr_slp(slp_first_year,slp_last_year,"-09-01","-11-01",slp)
+slp_mean<-aggr_slp(slp_first_year,slp_last_year,slp_strt_date,slp_end_date,slp)
 
 #Run PCA on each year of mean SLP over the sub-annual period 
 slp_pca <- prcomp(slp_mean, center = TRUE, scale. = TRUE)
