@@ -125,7 +125,7 @@ get_r_stack<-function(yr_vect,snow_dir_path)
   }
   
   
-  s_mean<-calc(s,mean)
+  s_mean<-calc(s,mean, na.rm=TRUE)
   
   return(s_mean)
 }
@@ -261,7 +261,7 @@ std_dev <- dur_pca$sdev
 pr_var <- std_dev^2
 prop_varex <- (pr_var/sum(pr_var))*100
 png("Manuscript/tatolatex/Figures/KNN/sdoff_scree.png")
-plot(prop_varex, type = "b", xlab = "Principle Component",ylab = "Proportion of Variance Explained (%)")
+plot(prop_varex, type = "h", xlab = "Principle Component",ylab = "Proportion of Variance Explained (%)")
 dev.off()
 
 #Get PCA scores
@@ -305,43 +305,62 @@ clu_3<-years[clusters$cluster==3]
 #Plot diffrence from time series mean for each SDoff Cluster 
 ts_mean<-get_r_stack(years,snow_dir_path)
 ts_mean<-projectRaster(ts_mean,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+ts_mean[ts_mean<0]<--Inf
 clu_1_r<-get_r_stack(clu_1,snow_dir_path)
 clu_1_r<-projectRaster(clu_1_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+clu_1_r[clu_1_r<0]<--Inf
 clu_2_r<-get_r_stack(clu_2,snow_dir_path)
 clu_2_r<-projectRaster(clu_2_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+clu_2_r[clu_2_r<0]<--Inf
 clu_3_r<-get_r_stack(clu_3,snow_dir_path)
 clu_3_r<-projectRaster(clu_3_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+clu_3_r[clu_3_r<0]<--Inf
 
 clu_1_dif<-clu_1_r-ts_mean
 clu_2_dif<-clu_2_r-ts_mean
 clu_3_dif<-clu_3_r-ts_mean
 
-clu_1_dif<-reclassify(clu_1_dif, rcl=c(-Inf,-40,-50,
+clu_1_dif<-reclassify(clu_1_dif, rcl=c(-9999,-40,-50,
                                        -40,-30,-40,
                                        -30,-10,-30,
                                        -10,0,-10,
                                        0,10,10,
                                        10,30,30,
                                        30,40,40,
-                                       40,Inf,50))
+                                       40,9999,50))
 
-clu_2_dif<-reclassify(clu_2_dif, rcl=c(-Inf,-40,-50,
+clu_2_dif<-reclassify(clu_2_dif, rcl=c(-9999,-40,-50,
                                        -40,-30,-40,
                                        -30,-10,-30,
                                        -10,0,-10,
                                        0,10,10,
                                        10,30,30,
                                        30,40,40,
-                                       40,Inf,50))
+                                       40,9999,50))
 
-clu_3_dif<-reclassify(clu_3_dif, rcl=c(-Inf,-40,-50,
+clu_3_dif<-reclassify(clu_3_dif, rcl=c(-9999,-40,-50,
                                        -40,-30,-40,
                                        -30,-10,-30,
                                        -10,0,-10,
                                        0,10,10,
                                        10,30,30,
                                        30,40,40,
-                                       40,Inf,50))
+                                       40,9999,50))
+
+
+
+
+RStoolbox::ggR(ts_mean, geom_raster = T) + 
+  geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
+  geom_sf(data=ecoprov, fill = NA, col = 'black') +
+  coord_sf(xlim = c(1917109/9,1917109)) +
+  scale_fill_gradientn(colours=cols, na.value = "white") +
+  labs(x="",y="",fill="T.S. Mean (Days)")+
+  theme_void()+
+  theme(legend.position  = c(.85,.7))
+
+ggsave(filename = "Manuscript/tatolatex/Figures/KNN/ts_mean.jpeg", device = 'jpeg')
+
 
 
 
@@ -349,7 +368,7 @@ RStoolbox::ggR(clu_1_dif, geom_raster = T, forceCat = T) +
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_manual(values = brewer.pal(8, "Spectral"), na.value="white") +
+  scale_fill_manual(values = brewer.pal(10, "Spectral"), na.value="white") +
   labs(x="",y="",fill="Clust. 1 - T.S. Mean (Days)")+
   theme_void()+
   theme(legend.position  = c(.85,.7))
@@ -360,7 +379,7 @@ RStoolbox::ggR(clu_2_dif, geom_raster = T, forceCat = T) +
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_manual(values = brewer.pal(8, "Spectral")) +
+  scale_fill_manual(values = brewer.pal(10, "Spectral")) +
   labs(x="",y="",fill="Clust. 2 - T.S. Mean (Days)")+
   theme_void()+
   theme(legend.position  = c(.85,.7))
@@ -371,7 +390,7 @@ RStoolbox::ggR(clu_3_dif, geom_raster = T, forceCat = T) +
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_manual(values = brewer.pal(8, "Spectral")) +
+  scale_fill_manual(values = brewer.pal(10, "Spectral")) +
   labs(x="",y="",fill="Clust. 3 - T.S. Mean (Days)")+
   theme_void()+
   theme(legend.position  = c(.85,.7))
@@ -518,7 +537,8 @@ std_dev <- slp_pca$sdev
 pr_var <- std_dev^2
 prop_varex <- (pr_var/sum(pr_var))*100
 png("Manuscript/tatolatex/Figures/KNN/mslp_scree.png")
-plot(prop_varex, type = "b", xlab = "Principle Component",ylab = "Proportion of Variance Explained (%)")
+plot(prop_varex, type = "h", xlab = "Principle Component",ylab = "Proportion of Variance Explained (%)")
+abline(h=prop_varex[15])
 dev.off()
 
 #Get the PCA scores as data frame 
@@ -564,6 +584,7 @@ reg_tab %>%
 #Get raw and standardized LDA coef. using candisc package, *!Must manually enter model params! 
 x=lm(cbind(PC1,PC2,PC3,PC4,PC5,PC6,PC7,PC8,PC9,PC10,PC11,PC12,PC13,PC14,PC15)~y_clust, reg_tab)
 lda_can<-candisc(x, term="y_clust")
+lda_can
 coef_std<-as.data.frame(lda_can$coeffs.std)
 ld_scores<-as.data.frame(lda_can$scores)
 lda_can$coeffs.raw
@@ -578,7 +599,7 @@ ld_scores %>%
 
 
 png("Manuscript/tatolatex/Figures/KNN/scoreplot.png")
-plot(Can2~Can1, data = as.data.frame(ld_scores), xlab = "LD1 Score", ylab="LD2 Score", main="LDA Score Plot")
+plot(Can2~Can1, data = as.data.frame(ld_scores), xlab = "LD1 Score", ylab="LD2 Score", main="LDA Score Plot", type = 'n')
 text(ld_scores$Can1,ld_scores$Can2, labels = ld_scores$y_clust, pos = 3)
 dev.off()
 
@@ -591,6 +612,8 @@ abline(v=0, lty=2)
 abline(h=0, lty=2)
 dev.off()
 
+
+#Asess leave-one-out classification accuracy of KNN model with 2 nearest neighbors. Expects specifc format of 'ld_scores' 
 acc_vec<-c()
 
 for(row in c(1:nrow(ld_scores)))
@@ -604,7 +627,7 @@ for(row in c(1:nrow(ld_scores)))
 
 print(c("Leave-One-Out Acc.",mean(acc_vec)))
 
-
+table(acc_vec,y)
 
 #########################################################################################################
 ########################
@@ -617,10 +640,10 @@ print(c("Leave-One-Out Acc.",mean(acc_vec)))
 #Get PCA loadings 
 slp_loadings <- slp_pca$rotation
 
-#Manually specify PC number model vector for creation of loading rasters (Based on prioror results)
+#Manually specify PC vector, up to 15 PCs in this case
 m_vect<-c(1:15)
 
-#Get a specific loading, reshape to orignal geospatial extent 
+#Generate a empty loading list 
 loading_lst<-list()
 cnt<-1
 
@@ -642,7 +665,7 @@ for (ld in m_vect)
 }
 
 
-#Make plots of loading rasters ...
+#Make plots of loading rasters in 'loading_lst' ...
 
 #download.file("http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_coastline.zip", destfile = 'coastlines.zip')
 
