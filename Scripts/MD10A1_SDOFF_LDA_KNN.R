@@ -15,6 +15,7 @@ library(readr)
 library(corrplot)
 library(ggplot2)
 library(gridExtra)
+library(ratmos)
 
 #########################################################################################################
 ########################
@@ -355,7 +356,7 @@ RStoolbox::ggR(ts_mean, geom_raster = T) +
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
   scale_fill_gradientn(colours=cols, na.value = "white") +
-  labs(x="",y="",fill="T.S. Mean (Days)")+
+  labs(x="",y="",fill="T.S. Mean (DSS)")+
   theme_void()+
   theme(legend.position  = c(.85,.7))
 
@@ -419,51 +420,80 @@ pc4_ld<-projectRaster(pc4_ld,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +l
 #Shutdown cluster object
 stopCluster(cl)
 
-RStoolbox::ggR(pc1_ld, geom_raster = T) + 
+# If only plotting: 
+# pc1_ld <- raster("Manuscript/tatolatex/Figures/KNN/PC1_loading.tif")
+# pc1_ld <- projectRaster(pc1_ld, crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+# pc2_ld <- raster("Manuscript/tatolatex/Figures/KNN/PC2_loading.tif")
+# pc2_ld <- projectRaster(pc2_ld, crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+# pc3_ld <- raster("Manuscript/tatolatex/Figures/KNN/PC3_loading.tif")
+# pc3_ld <- projectRaster(pc3_ld, crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+# pc4_ld <- raster("Manuscript/tatolatex/Figures/KNN/PC4_loading.tif")
+# pc4_ld <- projectRaster(pc4_ld, crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
+
+RStoolbox::ggR(pc1_ld*10000, geom_raster = T, maxpixels = 1e6) + 
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_gradientn(colours=cols, na.value = "white") +
-  labs(x="",y="",fill="Loading Coef.")+
+  scale_fill_gradientn(colours=cols, na.value = "white",
+                       limits = c(-5,5),
+                       breaks = seq(-5,5,2.5)) +
+  guides(fill = guide_colorbar(barwidth = 2, barheight = 15, 
+                               frame.colour = "black", ticks.colour = "black", 
+                               draw.ulim = T, draw.llim = T, )) +
+  labs(x="",y="",fill="Loading Coef. (x10000)")+
   theme_void() +
   theme(legend.position  = c(.85,.7))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc1.jpeg", device = 'jpeg')
 
-RStoolbox::ggR(pc2_ld, geom_raster = T) + 
+RStoolbox::ggR(pc2_ld*10000, geom_raster = T, maxpixels = 1e6) + 
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_gradientn(colours=cols, na.value = "white") +
-  labs(x="",y="",fill="Loading Coef.")+
+  scale_fill_gradientn(colours=cols, na.value = "white",
+                       limits = c(-10,10),
+                       breaks = seq(-10,10,5)) +
+  guides(fill = guide_colorbar(barwidth = 2, barheight = 15, 
+                               frame.colour = "black", ticks.colour = "black", 
+                               draw.ulim = T, draw.llim = T, )) +
+  labs(x="",y="",fill="Loading Coef. (x10000)")+
   theme_void() +
   theme(legend.position  = c(.85,.7))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc2.jpeg", device = 'jpeg')
 
-RStoolbox::ggR(pc3_ld, geom_raster = T) + 
+RStoolbox::ggR(pc3_ld*10000, geom_raster = T, maxpixels = 1e6) + 
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_gradientn(colours=cols, na.value = "white") +
-  labs(x="",y="",fill="Loading Coef.")+
+  scale_fill_gradientn(colours=cols, na.value = "white",
+                       limits = c(-11,11),
+                       breaks = seq(-10,10,5)) +
+  guides(fill = guide_colorbar(barwidth = 2, barheight = 15, 
+                               frame.colour = "black", ticks.colour = "black", 
+                               draw.ulim = T, draw.llim = T, )) +
+  labs(x="",y="",fill="Loading Coef. (x10000)")+
   theme_void() +
   theme(legend.position  = c(.85,.7))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc3.jpeg", device = 'jpeg')
 
-RStoolbox::ggR(pc4_ld, geom_raster = T) + 
+
+RStoolbox::ggR(pc4_ld*10000, geom_raster = T, maxpixels = 1e6) + 
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) +
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_gradientn(colours=cols, na.value = "white") +
-  labs(x="",y="",fill="Loading Coef.")+
+  scale_fill_gradientn(colours=cols, na.value = "white",
+                       limits = c(-15,15),
+                       breaks = seq(-15,15,7.5)) +
+  guides(fill = guide_colorbar(barwidth = 2, barheight = 15, 
+                               frame.colour = "black", ticks.colour = "black", 
+                               draw.ulim = T, draw.llim = T, )) +
+  labs(x="",y="",fill="Loading Coef. (x10000)")+
   theme_void() +
   theme(legend.position  = c(.85,.7))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/sdoff_pc4.jpeg", device = 'jpeg')
-
-
 
 
 # #Save loading rasters as JPEGS in manuscript folder
@@ -680,9 +710,11 @@ for(i in c(1:15))
   title = paste0("MSLP PC",i)
   
   jpeg(path,quality = 100)
-  plot(loading_lst[[i]], main = title,xlab = 'Longitude',ylab='Latitude', box=FALSE,col = cols,xlim=c(-180,180), ylim=c(-90,90), asp=2)
+  plot(loading_lst[[i]], main = "",xlab = "",ylab="", box=FALSE,col = cols,xlim=c(-180,180), ylim=c(-90,90), asp=2)
   plot(coastlines, add=TRUE)
   dev.off()
+  
+  
 }
 
 
@@ -695,19 +727,56 @@ for(i in c(1:15))
 #########################################################################################################
 
 
-fall_oni_pdo <- read_csv("RawData/fall_oni_pdo.csv")
-
-names(fall_oni_pdo)[1]<-"Year"
-
-reg_tab_tele<-left_join(reg_tab, fall_oni_pdo, by = 'Year')
-
-cor_mat<-cor(as.matrix(reg_tab_tele[,c(1:15,43:45)]), method = 'spearman' )
-
-corrplot(cor_mat, method = "ellipse", type = "lower")
+ao <- get_ao()
+oni <- get_oni()
+pna <- get_pna()
+pdo <- get_pdo()
+tele <- merge(merge(merge(oni,pdo),pna), ao) %>% 
+  pivot_longer(c("ONI","PDO","PNA","AO"), names_to = "index", values_to = "value")
 
 
-png("Manuscript/tatolatex/Figures/KNN/tele_corrplot.png")
-corrplot(cor_mat, method = "ellipse", type = "lower")
-dev.off()
+# Fall Indices
+fall_oni <- tele %>%
+  filter(index == 'ONI') %>%
+  filter(Month %in% c(9,10,11)) %>% 
+  group_by(Year, index) %>% 
+  summarise(oni_fall = mean(value, na.rm = T))
+
+fall_pdo <- tele %>%
+  filter(index == 'PDO') %>%
+  filter(Month %in% c(9,10,11)) %>% 
+  group_by(Year, index) %>% 
+  summarise(pdo_fall= mean(value, na.rm = T))
+
+fall_pna <- tele %>%
+  filter(index == 'PNA') %>%
+  filter(Month %in% c(9,10,11)) %>% 
+  group_by(Year, index) %>% 
+  summarise(pna_fall = mean(value, na.rm = T))
+
+fall_ao <- tele %>%
+  filter(index == 'AO') %>%
+  filter(Month %in% c(9,10,11)) %>% 
+  group_by(Year, index) %>% 
+  summarise(ao_fall = mean(value, na.rm = T))
 
 
+mslp_retain<-paste('PC',c(1:15), sep="")
+
+
+
+mslp_1_15<-reg_tab[,colnames(reg_tab)==mslp_retain]
+
+mslp_1_15$Year<-c(2000:2018)
+
+
+
+cor_tab<- mslp_1_15 %>%
+  left_join(fall_oni, by = 'Year') %>%
+  left_join(fall_pdo, by = 'Year') %>%
+  left_join(fall_pna, by = 'Year') %>%
+  left_join(fall_ao, by = 'Year')
+
+
+
+write_csv(cor_tab, path = 'RawData/tele_mslp.csv')
