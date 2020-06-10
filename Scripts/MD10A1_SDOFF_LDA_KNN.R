@@ -107,7 +107,6 @@ get_r_stack<-function(yr_vect,snow_dir_path)
     {
       s <- raster(paste(snow_dir_path,year,'.tif',sep = ""), band=2)
       
-      NAvalue(s) <- -9
     }
     else
     {
@@ -117,7 +116,6 @@ get_r_stack<-function(yr_vect,snow_dir_path)
       #Read in the snow duration raster for the given year
       rast <-raster(path, band=2)
       
-      NAvalue(s) <- -9
       
       #Add the new year to the raster stack 
       s <- stack(s,rast)
@@ -125,6 +123,7 @@ get_r_stack<-function(yr_vect,snow_dir_path)
     i<-i+1
   }
   
+  NAvalue(s)<--9.0
   
   s_mean<-calc(s,mean, na.rm=TRUE)
   
@@ -306,47 +305,60 @@ clu_3<-years[clusters$cluster==3]
 #Plot diffrence from time series mean for each SDoff Cluster 
 ts_mean<-get_r_stack(years,snow_dir_path)
 ts_mean<-projectRaster(ts_mean,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-ts_mean[ts_mean<0]<--Inf
+
 clu_1_r<-get_r_stack(clu_1,snow_dir_path)
 clu_1_r<-projectRaster(clu_1_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-clu_1_r[clu_1_r<0]<--Inf
+
 clu_2_r<-get_r_stack(clu_2,snow_dir_path)
 clu_2_r<-projectRaster(clu_2_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-clu_2_r[clu_2_r<0]<--Inf
+
 clu_3_r<-get_r_stack(clu_3,snow_dir_path)
 clu_3_r<-projectRaster(clu_3_r,crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs')
-clu_3_r[clu_3_r<0]<--Inf
+
 
 clu_1_dif<-clu_1_r-ts_mean
 clu_2_dif<-clu_2_r-ts_mean
 clu_3_dif<-clu_3_r-ts_mean
 
-clu_1_dif<-reclassify(clu_1_dif, rcl=c(-9999,-40,-50,
-                                       -40,-30,-40,
-                                       -30,-10,-30,
-                                       -10,0,-10,
-                                       0,10,10,
-                                       10,30,30,
-                                       30,40,40,
-                                       40,9999,50))
+clu_1_sm<-summary(clu_1_dif)
+clu_2_sm<-summary(clu_2_dif)
+clu_3_sm<-summary(clu_3_dif)
 
-clu_2_dif<-reclassify(clu_2_dif, rcl=c(-9999,-40,-50,
-                                       -40,-30,-40,
-                                       -30,-10,-30,
-                                       -10,0,-10,
-                                       0,10,10,
-                                       10,30,30,
-                                       30,40,40,
-                                       40,9999,50))
+clu_1_dif<-reclassify(clu_1_dif, rcl=c(clu_1_sm[1],-30,-30,
+                                       -30,-20,-25,
+                                       -20,-10,-15,
+                                       -10,-6,-8,
+                                       -6,-2,-4,
+                                       -2,2,0,
+                                       2,6,4,
+                                       6,10,8,
+                                       10,20,15,
+                                       20,30,25,
+                                       30,clu_1_sm[5],30))
 
-clu_3_dif<-reclassify(clu_3_dif, rcl=c(-9999,-40,-50,
-                                       -40,-30,-40,
-                                       -30,-10,-30,
-                                       -10,0,-10,
-                                       0,10,10,
-                                       10,30,30,
-                                       30,40,40,
-                                       40,9999,50))
+clu_2_dif<-reclassify(clu_2_dif, rcl=c(clu_2_sm[1],-30,-30,
+                                       -30,-20,-25,
+                                       -20,-10,-15,
+                                       -10,-6,-8,
+                                       -6,-2,-4,
+                                       -2,2,0,
+                                       2,6,4,
+                                       6,10,8,
+                                       10,20,15,
+                                       20,30,25,
+                                       30,clu_2_sm[5],30))
+
+clu_3_dif<-reclassify(clu_3_dif, rcl=c(clu_3_sm[1],-30,-30,
+                                       -30,-20,-25,
+                                       -20,-10,-15,
+                                       -10,-6,-8,
+                                       -6,-2,-4,
+                                       -2,2,0,
+                                       2,6,4,
+                                       6,10,8,
+                                       10,20,15,
+                                       20,30,25,
+                                       30,clu_3_sm[5],30))
 
 
 
@@ -358,7 +370,7 @@ RStoolbox::ggR(ts_mean, geom_raster = T) +
   scale_fill_gradientn(colours=cols, na.value = "white") +
   labs(x="",y="",fill="T.S. Mean (DSS)")+
   theme_void()+
-  theme(legend.position  = c(.85,.7))
+  theme(legend.position  = c(.85,.7),legend.text=element_text(size=10))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/ts_mean.jpeg", device = 'jpeg')
 
@@ -369,21 +381,21 @@ RStoolbox::ggR(clu_1_dif, geom_raster = T, forceCat = T) +
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_manual(values = brewer.pal(10, "Spectral"), na.value="white") +
+  scale_fill_manual(values = brewer.pal(11, "Spectral"), na.value="white",labels = c("<-30","-30--20","-20--10","-10--6","-6--2","-2-2","2-6","6-10","10-20","20-30",">30")) +
   labs(x="",y="",fill="Clust. 1 - T.S. Mean (Days)")+
   theme_void()+
-  theme(legend.position  = c(.85,.7))
+  theme(legend.position  = c(.85,.7),legend.text=element_text(size=10))
 
-ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster1_mean.jpeg", device = 'jpeg')
+  ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster1_mean.jpeg", device = 'jpeg')
 
 RStoolbox::ggR(clu_2_dif, geom_raster = T, forceCat = T) + 
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_manual(values = brewer.pal(10, "Spectral")) +
+  scale_fill_manual(values = brewer.pal(11, "Spectral"),labels = c("<-30","-30--20","-20--10","-10--6","-6--2","-2-2","2-6","6-10","10-20","20-30",">30")) +
   labs(x="",y="",fill="Clust. 2 - T.S. Mean (Days)")+
   theme_void()+
-  theme(legend.position  = c(.85,.7))
+  theme(legend.position  = c(.85,.7),legend.text=element_text(size=10))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster2_mean.jpeg", device = 'jpeg')
 
@@ -391,10 +403,10 @@ RStoolbox::ggR(clu_3_dif, geom_raster = T, forceCat = T) +
   geom_sf(data = bc_boun, fill = NA, col = 'black' ) + 
   geom_sf(data=ecoprov, fill = NA, col = 'black') +
   coord_sf(xlim = c(1917109/9,1917109)) +
-  scale_fill_manual(values = brewer.pal(10, "Spectral")) +
+  scale_fill_manual(values = brewer.pal(11, "Spectral"),labels = c("<-30","-30--20","-20--10","-10--6","-6--2","-2-2","2-6","6-10","10-20","20-30",">30")) +
   labs(x="",y="",fill="Clust. 3 - T.S. Mean (Days)")+
   theme_void()+
-  theme(legend.position  = c(.85,.7))
+  theme(legend.position  = c(.85,.7),legend.text=element_text(size=10))
 
 ggsave(filename = "Manuscript/tatolatex/Figures/KNN/cluster3_mean.jpeg", device = 'jpeg')
 
@@ -702,6 +714,7 @@ for (ld in m_vect)
 #unzip(zipfile = "coastlines.zip", exdir = 'ne-coastlines-10m')
 
 coastlines <- st_read("ne-coastlines-10m/ne_10m_coastline.shp")$geometry
+bc_boun<-st_transform(bc_boun, 4326)
 
 for(i in c(1:15))
 {
@@ -712,9 +725,9 @@ for(i in c(1:15))
   jpeg(path,quality = 100)
   plot(loading_lst[[i]], main = "",xlab = "",ylab="", box=FALSE,col = cols,xlim=c(-180,180), ylim=c(-90,90), asp=2)
   plot(coastlines, add=TRUE)
+  plot(bc_boun, add=TRUE)
   dev.off()
-  
-  
+
 }
 
 
